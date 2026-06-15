@@ -1,0 +1,86 @@
+---
+# instala o docker dependendo do sistema operacional
+
+- name: instala dependencias no debian/ubuntu
+  apt:
+    name:
+      - apt-transport-https
+      - ca-certificates
+      - curl
+      - gnupg
+    state: present
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: cria pasta para chave do docker no debian
+  file:
+    path: /etc/apt/keyrings
+    state: directory
+    mode: "0755"
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: adiciona chave gpg do docker no debian
+  shell: |
+    curl -fsSL https://download.docker.com/linux/ubuntu/gpg | gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+    chmod a+r /etc/apt/keyrings/docker.gpg
+  args:
+    creates: /etc/apt/keyrings/docker.gpg
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: adiciona repositorio do docker no debian
+  apt_repository:
+    repo: "deb [arch=amd64 signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu {{ ansible_facts['distribution_release'] }} stable"
+    state: present
+    filename: docker
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: instala docker no debian/ubuntu
+  apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+    update_cache: yes
+  when: ansible_facts['os_family'] == 'Debian'
+
+- name: instala dependencias no fedora/rhel
+  dnf:
+    name:
+      - curl
+      - gnupg2
+      - dnf-plugins-core
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: adiciona repositorio do docker no fedora
+  shell: dnf config-manager --add-repo https://download.docker.com/linux/fedora/docker-ce.repo
+  args:
+    creates: /etc/yum.repos.d/docker-ce.repo
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: instala docker no fedora/rhel
+  dnf:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-compose-plugin
+    state: present
+  when: ansible_facts['os_family'] == 'RedHat'
+
+- name: inicia o servico do docker
+  service:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: checa se a rede ja existe
+  shell: docker network inspect {{ docker_network }} > /dev/null 2>&1
+  register: rede_existe
+  ignore_errors: yes
+  changed_when: false
+
+- name: cria a rede docker do projeto
+  shell: docker network create --driver bridge {{ docker_network }}
+  when: rede_existe.rc != 0

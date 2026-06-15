@@ -1,0 +1,46 @@
+---
+- name: sobe o ambiente do projeto korp
+  hosts: localhost
+  connection: local
+  become: true
+
+  vars:
+    projeto_dir: "{{ playbook_dir | dirname }}"
+    docker_network: korp-network
+
+  pre_tasks:
+    - name: atualiza cache apt
+      apt:
+        update_cache: yes
+        cache_valid_time: 3600
+      when: ansible_facts['os_family'] == 'Debian'
+
+    - name: atualiza cache dnf
+      shell: dnf check-update -q || true
+      when: ansible_facts['os_family'] == 'RedHat'
+      changed_when: false
+
+  roles:
+    - role: docker
+    - role: app
+    - role: monitoring
+
+  post_tasks:
+    - name: aguarda porta 80
+      wait_for:
+        host: localhost
+        port: 80
+        delay: 5
+        timeout: 60
+
+    - name: testa o endpoint
+      uri:
+        url: "http://localhost:80/projeto-korp"
+        method: GET
+        return_content: yes
+        status_code: 200
+      register: resultado
+
+    - name: mostra a resposta
+      debug:
+        msg: "resposta do servico: {{ resultado.content }}"

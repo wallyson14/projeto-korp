@@ -1,0 +1,28 @@
+---
+# verifica se prometheus e grafana subiram
+
+- name: aguarda prometheus
+  uri:
+    url: "http://localhost:9090/-/healthy"
+    status_code: 200
+  register: resp_prometheus
+  retries: 12
+  delay: 5
+  until: resp_prometheus.status == 200
+
+- name: aguarda grafana
+  uri:
+    url: "http://localhost:3000/api/health"
+    status_code: 200
+  register: resp_grafana
+  retries: 12
+  delay: 5
+  until: resp_grafana.status == 200
+
+- name: prometheus ok
+  debug:
+    msg: "prometheus rodando em http://localhost:9090"
+
+- name: grafana ok
+  debug:
+    msg: "grafana rodando em http://localhost:3000 - login: admin / admin"
